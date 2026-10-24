@@ -1,0 +1,283 @@
+\documentclass{article}
+
+%% Useful packages
+\usepackage{graphicx} % Required for inserting images
+\usepackage{fullpage,enumitem,bbm,amsmath,amsfonts,amssymb,url,hyperref}
+\usepackage{sectsty}
+\usepackage{tgpagella}
+\usepackage{tcolorbox}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{cleveref}
+\usepackage[skip=10pt plus1pt, indent=0pt]{parskip}
+\usepackage[edges]{forest} % file structure
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+}
+
+%% Title formatting
+\makeatletter
+\def\@maketitle{%
+  \newpage
+  \null
+  \begin{center}%
+  \let \footnote \thanks
+    {\LARGE {\@title}\par}%
+    {\@author}%
+  \end{center}%
+  \par
+}
+\makeatother
+
+%% Useful math expressions
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\E}{\mathbb{E}}
+
+% Random vectors
+\def\rva{{\mathbf{a}}}
+\def\rvs{{\mathbf{s}}}
+
+
+
+\title{CAS4160 Homework 5: Offline RL}
+
+%% TODO: Replace {\textbf{\color{red} ...}} with your name and student ID
+\author{
+    {Tang Quang Huy} \\
+    {2025849132}
+}
+
+
+\begin{document}
+
+\maketitle
+
+
+
+\section{Introduction}
+
+In this assignment, you will implement one of the fundamental algorithms in offline reinforcement learning: Conservative Q-Learning (CQL). You will be experimenting with different hyperparameters and offline datasets that have been provided to you. In this assignment, we provide a random policy and an expert policy for you to compare the performance according to the quality of the collected data.
+
+Your objectives are as follows:
+
+\begin{enumerate} 
+    \item Implement and train an offline reinforcement learning algorithm, CQL
+    \item Experiment with the key hyperparameters and explore how they affect performance of your RL agent
+    \item Analyze differences between the quality of different offline datasets, Random and Expert
+\end{enumerate}
+
+\noindent\textbf{Writing the report}: Provide your responses for questions with \texttt{\%TODO} tags in this LaTeX template. Submit all the requested values in tables, and put in all requested plots/images. You should also include all your reasoning and text responses in the PDF.
+
+
+
+\section{Codebase}
+
+In this assignment, you mainly work with the following codes:
+\begin{itemize}
+    \item \verb|cas4160/scripts/run_cql.py|: the main training loop for your CQL implementation.
+    \item \verb|cas4160/critics/cql_critic.py|: the CQL learner you will implement.
+\end{itemize}
+
+For each problem, we specify which files you need to complete. Sections that need to be filled have been marked with \texttt{TODO} tags.
+
+Please follow the setup instructions provided in the README.md file to install the dependencies.
+
+
+
+\section{Tips for experiments}
+
+In this homework, our code is computationally light; if you use a RTX 3090 GPU, the GPU utilization will be up to $20$\%. To utilize the full power of GPUs, we recommend you to run multiple jobs simultaneously. You can do it by (1)~executing multiple bash terminals and execute the training script for each bash terminal; (2)~using ``\&'' command to run the jobs in background; or (3)~using \href{https://github.com/tmux/tmux/wiki}{tmux}. We recommend trying tmux since it is one of the powerful utility tools that you can use inside linux servers. One of the advantages of tmux is that your work status would be saved inside a tmux session, so it will keep running even if you loose the ssh connection.
+
+
+
+\section{Preliminaries}
+
+\paragraph{Environments:}
+In this assignment, you will be working with the Pointmass environment. The goal for the Pointmass environment is to navigate a grid world of varying difficulties: \texttt{easy}, \texttt{medium}, and \texttt{hard} to reach the `goal' location. Sample environments for each difficulty have been visualized in \Cref{fig:pointmass_vis}. The observation consists of $(y, x)$-location of the point mass and the action space is $5$ discrete numbers indicating \texttt{NO MOVE}, \texttt{LEFT}, \texttt{RIGHT}, \texttt{UP}, and \texttt{DOWN}. The agent receives $1$ reward and terminates when the agent reaches the goal, otherwise receives reward of $0$.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=\textwidth]{assets/black.jpg}
+    \vspace{-1em}
+    \caption{Visualization of the Pointmass environments with \texttt{Medium} (left) and \texttt{Hard} (right) difficulties for navigation and reaching the goal.}
+    \label{fig:pointmass_vis}
+\end{figure}
+
+
+\paragraph{Offline datasets:} 
+For offline RL, we have provided you with a set of data collection strategies which are used to collect the offline dataset. These trajectories then serve as the training dataset for your offline RL algorithms. The offline transitions dataset $\mathcal{D} = \{ (\rvs_i, \rva_i, r_i, \rvs_{i+1})_i \}$ consists of tuples of the current state, action, reward, and future state. In this assignment, you will experiment with two datasets generated by (1)~random policy (100000 steps) and (2)~expert policy (20000 steps). 
+
+
+
+\section{Conservative Q-Learning}
+
+\subsection{Implement CQL}
+
+In this problem, you'll be implementing the \href{https://arxiv.org/abs/2006.04779}{Conservative Q-Learning} (CQL) algorithm (a DQN version for the discrete environment). The goal of CQL is to prevent overestimation of the policy value. The overall CQL objective is given by the standard TD error objective augmented with the CQL regularizer weighted by $\alpha$:
+\begin{equation}
+L_Q(\theta)=\frac{1}{N} \sum_{i=1}^N \left[ \left( Q(\mathbf{s}_i, \mathbf{a}_i) - \left( r(\mathbf{s}_i, \mathbf{a}_i) + \gamma \max_{\mathbf{a}'} [Q(\mathbf{s}'_i, \mathbf{a}')] \right)\right)^2  \right] + \alpha\frac{1}{N} \sum_{i=1}^N\left[\log \left(\sum_\rva \exp \left(Q\left(\rvs_i, \rva\right)\right)\right)-Q\left(\rvs_i, \rva_i\right)\right].
+\end{equation}
+
+Fill in the TODOs in the following file:
+\begin{itemize}
+    \item \verb|cas4160/critics/cql_critic.py|
+\end{itemize}
+
+Once you’ve filled in all of the TODO commands, you should be able to run CQL on the \textbf{expert} dataset with the following command:
+\begin{tcolorbox}[width=\linewidth, sharp corners=all, colback=white!95!black]
+\begin{verbatim}
+python cas4160/scripts/run_cql.py --env_name PointmassMedium-v0 \
+    --exp_name cql_alpha_{$ALPHA}_expert \
+    --dataset_name expert --cql_alpha={$ALPHA}
+\end{verbatim}
+\end{tcolorbox}
+
+Run CQL with $\alpha = \{ 0.0, 0.1 \}$ in \texttt{expert} dataset. Please report the \texttt{Eval\_AverageReturn},\texttt{Eval\_StdReturn} of the last step in your tensorboard log file in the table. Your CQL implementation should achieve about at least $0.9$ in \texttt{expert} dataset with $\alpha=0.1$ in \texttt{Medium} difficulty. The code will run for $50000$ iterations and takes around $30$ minutes. Also, attach the \texttt{eval\_last\_traj.png} image, which visualizes your agent's last trajectory, and the \textit{overestimation} value curve, $\frac{1}{N} \sum_{i=1}^N\left[\log \left(\sum_\rva \exp \left(Q\left(\rvs_i, \rva\right)\right)\right)-Q\left(\rvs_i, \rva_i\right)\right]$.
+
+\textbf{What does $\alpha=0.0$ signify in terms of the algorithm (hint: think about an algorithm on top of which we developed CQL)? Explain the difference in the performance gap and the overestimation value with respect to $\alpha$.
+}
+
+% TODO: Provide your written answer and plot(s)
+\textbf{Answer:}
+\begin{itemize}
+    \item $\alpha=0.0$ removes the CQL regularizer, reducing the algorithm to standard Double DQN on the offline dataset.
+    \item With the expert dataset, the offline data covers only a narrow region of the state-action space. Without the CQL penalty, the Q-network assigns arbitrarily high values to out-of-distribution (OOD) actions it has never seen, causing the greedy policy to repeatedly select those actions and fail to reach the goal (Eval\_AverageReturn = 0.0).
+    \item $\alpha=0.1$ penalizes the gap between $\log\sum_a \exp Q(s,a)$ and $Q(s,a_\text{data})$, suppressing OOD Q-values. The overestimation drops from $\approx 1.57$ at initialization to $\approx 0.23$ by step 49000, and the agent achieves a perfect Eval\_AverageReturn of 1.0.
+    \item $\alpha=0.0$ overestimation stays persistently high ($\approx 1.3$--$1.5$) throughout training with no mechanism to correct it.
+\end{itemize}
+
+\begin{table}[H]
+    \centering
+    \caption{Average Eval Performance with different $\alpha$ on \texttt{expert} dataset, \texttt{PointmassMedium-v0}, at step 49000.}
+    \label{tab:pointmass_CQL_results}
+    \begin{tabular}{c|cc}
+        \toprule
+        & Mean & Standard Deviation \\
+        \midrule
+        \texttt{$\alpha = 0.0$} & 0.0 & 0.0 \\
+        \texttt{$\alpha = 0.1$} & 1.0 & 0.0 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=.7\linewidth]{assets/expert_alpha0.0_traj.png}
+        \caption{Last eval trajectory on \texttt{expert} dataset with $\alpha = 0.0$. The agent is stuck near the start and never reaches the goal.}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=.7\linewidth]{assets/expert_alpha0.1_traj.png}
+        \caption{Last eval trajectory on \texttt{expert} dataset with $\alpha = 0.1$. The agent successfully navigates the maze and reaches the goal.}
+    \end{minipage}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=.5\linewidth]{assets/expert_overestimation.png}
+    \caption{Q-value overestimation $\frac{1}{N}\sum_i[\log\sum_a \exp Q(s_i,a) - Q(s_i,a_i)]$ during training on \texttt{expert} dataset. $\alpha=0.1$ steadily reduces overestimation; $\alpha=0.0$ shows no improvement.}
+\end{figure}
+
+
+
+\subsection{Comparison between Expert dataset and Random dataset (5 points)}
+
+Compare the learned policies for the expert dataset and random dataset on the \texttt{PointmassMedium-v0} environment with $\alpha=\{0.0, 0.1\}$ by reporting the eval average return and standard deviation. 
+Execute the below command to execute CQL with \textbf{random} dataset:
+
+\begin{tcolorbox}[width=\linewidth, sharp corners=all, colback=white!95!black]
+\begin{verbatim}
+python cas4160/scripts/run_cql.py --env_name PointmassMedium-v0 \
+    --exp_name cql_alpha_{$ALPHA}_random \
+    --dataset_name random --cql_alpha={$ALPHA}
+\end{verbatim}
+\end{tcolorbox}
+
+Attach the \verb|eval_last_traj.png| image denoting your agent's last trajectory for each run.
+
+\textbf{You may have noticed that the performance gap between $\alpha = 0.0$ and $\alpha = 0.1$ is not as large in the random dataset as it was in the previous experiment with the expert dataset. Explain why $\alpha=0.0$ performs well on the random dataset but fails on the expert dataset. Hint: CQL aims to prevent overestimation of `unseen' actions.}
+ 
+% TODO: Provide your written answer and plot(s)
+\textbf{Answer:}
+\begin{itemize}
+    \item The random dataset (100k steps) covers the entire state-action space nearly uniformly. Almost every $(s, a)$ pair has been visited, so there are very few truly OOD actions. TD updates are available across all actions, and the Q-network learns accurate relative rankings without needing the CQL penalty. Hence $\alpha=0.0$ still achieves Eval\_AverageReturn = 1.0.
+    \item The expert dataset (20k steps) is concentrated along the optimal path. The vast majority of actions at each state are OOD. Without CQL ($\alpha=0.0$), bootstrapped TD updates propagate errors and assign inflated Q-values to unseen actions, making the greedy policy choose those OOD actions and fail completely (Eval\_AverageReturn = 0.0).
+    \item In short: CQL is most critical when the dataset has poor state-action coverage. With full coverage (random), overestimation of unseen actions is not an issue; with narrow coverage (expert), it is catastrophic.
+\end{itemize}
+
+\begin{table}[H]
+    \centering
+    \caption{Average Eval Performance with different datasets and $\alpha$ on \texttt{PointmassMedium-v0} at step 49000.}
+    \label{tab:pointmass_CQL_random_results}
+    \begin{tabular}{c|cc}
+        \toprule
+        & Mean & Standard Deviation \\
+        \midrule
+        \texttt{Random; $\alpha = 0.0$} & 1.0 & 0.0 \\
+        \texttt{Random; $\alpha = 0.1$} & 1.0 & 0.0 \\
+        \midrule
+        \texttt{Expert; $\alpha = 0.0$} & 0.0 & 0.0 \\
+        \texttt{Expert; $\alpha = 0.1$} & 1.0 & 0.0 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=.7\linewidth]{assets/random_alpha0.0_traj.png}
+        \caption{Last eval trajectory on \texttt{random} dataset with $\alpha = 0.0$. The agent reaches the goal despite no CQL regularization.}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=.7\linewidth]{assets/random_alpha0.1_traj.png}
+        \caption{Last eval trajectory on \texttt{random} dataset with $\alpha = 0.1$. The agent also reaches the goal; performance is similar to $\alpha=0.0$.}
+    \end{minipage}
+\end{figure}
+
+
+
+
+
+
+\section{Submission}
+
+Please include the code and the report in a single zip file, \texttt{hw5\_[YourStudentID].zip}. Do not include videos and logs as the file size should be less than $20$MB. The structure of the submission file should be:
+
+\begin{forest}
+  for tree={
+    font=\ttfamily,
+    grow'=0,
+    child anchor=west,
+    parent anchor=south,
+    anchor=west,
+    calign=first,
+    edge path={
+      \noexpand\path [draw, \forestoption{edge}]
+      (!u.south west) +(7.5pt,0) |- node[fill,inner sep=1.25pt] {} (.child anchor)\forestoption{edge label};
+    },
+    before typesetting nodes={
+      if n=1
+        {insert before={[,phantom]}}
+        {}
+    },
+    fit=band,
+    before computing xy={l=15pt},
+  }
+  [hw5\_\textcolor{red}{[YourStudentID]}.zip
+    [hw5\_\textcolor{red}{[YourStudentID]}.pdf]
+    [cas4160
+      [critics
+          [cql\_critic.py]
+          [...]
+      ]
+      [...]
+    ]
+    [...]
+  ]
+\end{forest}
+
+\end{document}
